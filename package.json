@@ -1,0 +1,36 @@
+{
+  "name": "kyoko-skills",
+  "version": "0.1.0",
+  "description": "Kyoko humanize + AI writing auditor skills for Claude Code and other Agent Skills hosts.",
+  "bin": {
+    "kyoko-skills": "./install.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "skills",
+    "writing",
+    "humanize",
+    "ai-writing"
+  ],
+  "author": {
+    "name": "Jamin Echols",
+    "url": "https://github.com/jaminechols"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaminechols/kyoko-skill"
+  },
+  "homepage": "https://github.com/jaminechols/kyoko-skill",
+  "files": [
+    "install.js",
+    "skill/",
+    ".claude-plugin/",
+    ".claude/",
+    ".cursor/"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "kyoko",
+  "description": "Kyoko humanize + AI writing auditor for Claude Code. Persona setup, persona-gated humanize, and audit/score loops—no default voice.",
+  "author": {
+    "name": "justjammin",
+    "url": "https://github.com/justjammin"
+  },
+  "homepage": "https://github.com/justjammin/kyoko-skill",
+  "repository": "https://github.com/justjammin/kyoko-skill",
+  "license": "MIT",
+  "keywords": [
+    "writing",
+    "humanize",
+    "persona",
+    "ai-writing",
+    "audit",
+    "editing"
+  ],
+  "skills": "./skill/"
+}
