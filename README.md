@@ -25,16 +25,12 @@ Details: **`skill/kyoko-humanize/SKILL.md`** and **`skill/ai-writing-auditor/SKI
 
 ### Claude Code (recommended): plugin
 
-Same pattern as [LENA](https://github.com/justjammin/lena): add the repo as a **Claude Code plugin** so both skills load from **`.claude-plugin/plugin.json`** (`"skills": "./skill/"`).
-
-After you publish the repo, e.g.:
-
 ```bash
-claude plugin add jaminechols/kyoko-skill
+claude plugin add justjammin/kyoko-skill
 claude plugin install kyoko
 ```
 
-(Fork? Replace **`jaminechols/kyoko-skill`** with your slug.)
+(Fork? Replace **`justjammin/kyoko-skill`** with your slug.)
 
 The plugin id in **`.claude-plugin/plugin.json`** is **`kyoko`** — that’s the name **`claude plugin install`** expects.
 
@@ -129,4 +125,4 @@ Docs: [Claude Code skills](https://code.claude.com/docs/en/skills), [Cursor Agen
 
 ## License
 
-MIT (add your name/org when you publish).
+MIT 
