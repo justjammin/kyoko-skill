@@ -140,13 +140,6 @@ For each piece of content, produce:
 3. **Change summary:** What was changed and why, grouped by category
 4. **Confidence:** numeric score (0–100) using the algorithm above when requested
 
-## Source
-
-Based on the open-source avoid-ai-writing skill:
-https://github.com/conorbronsdon/avoid-ai-writing (MIT license)
-
-Adapted from brandonwise/humanizer vocabulary research for the tiered detection system.
-
 ## Integration with other agents
 
 - Pair with any content-producing agent to clean output before delivery
