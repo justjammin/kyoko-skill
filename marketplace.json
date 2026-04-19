@@ -1,0 +1,18 @@
+{
+    "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+    "name": "kyoko",
+    "description": "AI Text Slop Humanizer",
+    "owner": {
+      "name": "Jamin Echols",
+      "url": "https://github.com/justjammin"
+    },
+    "plugins": [
+      {
+        "name": "kyoko",
+        "description": "Know Your Output, Keep it Organic",
+        "source": "./",
+        "category": "productivity"
+      }
+    ]
+  }
+  
