@@ -129,4 +129,4 @@ Docs: [Claude Code skills](https://code.claude.com/docs/en/skills), [Cursor Agen
 
 ## License
 
-MIT.
+MIT. [justjammin](https://github.com/justjammin).
