@@ -119,7 +119,7 @@ The command stubs are thin; **`skill/kyoko-humanize/SKILL.md`** owns the behavio
 
 | Environment | Install |
 |-------------|---------|
-| **Claude Code** | `claude plugin add justjammin/kyoko-skill` then `claude plugin install kyoko` — or `node install.js` |
+| **Claude Code** | `claude plugin install kyoko@kyoko` — or `node install.js` |
 | **Cursor** | `node install.js` (copy) or `node install.js --project` / `--user` for symlinks — Cursor also picks up `~/.claude/skills/` |
 | **Other Agent Skills hosts** | Copy **`skill/*/`** into that tool’s skills directory, or use [agentskills.io](https://agentskills.io) flows if you ship a package |
 
