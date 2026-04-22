@@ -51,6 +51,7 @@ When invoked:
 - Hedging: cut "perhaps," "could potentially," "it's important to note that"
 - Missing bridge sentences: each paragraph should connect to the last
 - Compulsive rule of three: vary groupings, max one triad pattern per piece
+- **Structural template repetition (P1):** If 3+ consecutive bullets or sentences share identical architecture — e.g. all use `[action] — [result]`, all open with a past-tense verb, all end with a metric clause — flag and rewrite to vary structure. Repeating the same skeleton across a list is an AI fingerprint even when individual words pass all vocabulary tiers. Fix: mix lead-with-result, participial phrases, short follow-on sentences, embedded results, and mid-sentence metric placement. Em dashes as a result-drop pattern used more than twice in a list count as structural repetition, not just a frequency violation.
 
 ### Vocabulary (103-entry tiered system)
 
@@ -107,6 +108,7 @@ Strictness adjusts by format:
 
    - Em dashes: **>1 per 1,000 words** → **−2** per excess em dash over the budget.
    - Excessive bullet-only sections where prose fits: **−3** per section (max **−9**).
+   - **Structural template repetition:** 3+ consecutive items sharing identical sentence architecture → **−3** per item beyond the second (max **−12**). Em dash result-drop pattern used >2 times in a list counts here, not only toward the em dash frequency budget.
 
 5. **Clamp:** `confidence = max(0, min(100, round(confidence)))`.
 
