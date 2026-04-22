@@ -51,7 +51,7 @@ Run in order; accept skips if the user already knows their voice.
 When **Persona setup** finishes (quiz, preset refinement, or edit merged into final JSON), **write the file yourself** using the project **workspace root** (the repo or folder the user has open):
 
 - **Path:** **`.kyoko/persona.json`** (create directory **`.kyoko/`** if it does not exist).
-- **Contents:** valid JSON with at least **`proseGuidance`**; include **`name`**, **`role`**, **`tone`**, **`communicationStyle`**, **`phrasesToUse`**, **`phrasesToAvoid`**, **`rtcF`**, and optional **`examplePrompt`** when you have them.
+- **Contents:** valid JSON with at least **`proseGuidance`**; include **`name`**, **`role`**, **`tone`**, **`communicationStyle`**, **`phrasesToUse`**, **`phrasesToAvoid`**, **`rtcF`**, and optional **`examplePrompt`** when you have them. Always initialize **`formattingDont`** with the universal em dash rule — add persona-specific entries to the array but never remove the em dash entry.
 - **Override:** If the user names a different path, use that instead; if they say **do not save**, skip the write and only show JSON in chat.
 - **Failure:** If you cannot write files (no workspace, permissions), paste the full JSON and tell them to create **`.kyoko/persona.json`** manually.
 
@@ -133,9 +133,23 @@ If **`proseGuidance`** (or equivalent persona the user treats as authoritative) 
 
 If they only want **AI-ism stripping** with **no voice/persona**, use **[`ai-writing-auditor`](../ai-writing-auditor/SKILL.md)** alone instead of Kyoko humanize.
 
+### Universal formatting constraints (apply to every rewrite, all personas)
+
+These apply **regardless of persona**, pre-created or custom. They are not overridable by `proseGuidance`.
+
+| Constraint | Rule | Severity | Replacement |
+|-----------|------|----------|-------------|
+| **Em dashes ( — )** | Budget: 1 per 1,000 words. Excess is a P1 AI-writing smell. | P1 | Use `:` (annotation/intro), `.` (new sentence), `,` (light pause), or `()` (aside). Never use as a clause joiner or separator. |
+
+**When building or persisting a persona:** always write `formattingDont` into the JSON with at least the em dash rule:
+```json
+"formattingDont": ["em dashes ( — ): P1 AI smell, budget 1 per 1000 words. Replace with colon, period, comma, or parentheses depending on context."]
+```
+Add persona-specific entries to the array; never remove the em dash entry.
+
 ### Execution
 
-With **explicit persona** (gate satisfied), rewrite in-chat using persona + auditor checklist + confidence rubric from [`ai-writing-auditor/SKILL.md`](../ai-writing-auditor/SKILL.md); output rewritten text + confidence + findings.
+With **explicit persona** (gate satisfied), rewrite in-chat using persona + auditor checklist + confidence rubric from [`ai-writing-auditor/SKILL.md`](../ai-writing-auditor/SKILL.md) **plus universal formatting constraints above**; output rewritten text + confidence + findings.
 
 ### Adaptive loop (shared with auditor doc)
 
