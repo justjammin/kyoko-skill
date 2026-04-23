@@ -28,7 +28,7 @@ Use when the user wants to **create, edit, or persist** a writing persona—not 
 - **`proseGuidance`** (string): single block the rewriter follows—cadence, register, phrases to use/avoid, audience.
 - **Optional:** `name`, `role`, `communicationStyle`, `rtcF` object, `phrasesToUse` / `phrasesToAvoid`, example sentences.
 
-**Loading (for later Humanize runs):** **`@`-reference** `.kyoko/persona.json`, paste inline, or rely on this workflow having **written** that file (see **Persist** below). No silent reads from disk without user attachment.
+**Loading (for later Humanize runs):** **`@`-reference** `.kyoko/persona.json`, paste inline, or rely on this workflow having **written** that file (see **Persist** below). If the user does not attach or paste a persona, the Humanize gate will auto-read `.kyoko/persona.json` from the workspace root before blocking.
 
 **Optional homework (outside the agent):** Demographics, goals, and pain points can be drafted with tools such as [HubSpot Make My Persona](https://www.hubspot.com/make-my-persona) or [Xtensio](https://xtensio.com/user-persona/)—import highlights into the quiz answers below.
 
@@ -127,9 +127,10 @@ If the user only needs AI-ism removal with no persona, **auditor alone** may suf
 
 If **`proseGuidance`** (or equivalent persona the user treats as authoritative) is **not** already in context:
 
-1. **Stop** the humanize pass.
-2. Tell the user to complete **Workflow: Persona setup** (above)—paste persona, `@` **`.kyoko/persona.json`**, or run the **`persona`** slash command **if** their project includes that stub under `.claude/commands/` or `.cursor/commands/`.
-3. **Do not** run the full persona interview inside a **Humanize** request unless the user **explicitly** asks for that interview in the same turn; otherwise keep setup separate.
+1. **Auto-read** `.kyoko/persona.json` from the workspace root. If the file exists and contains `proseGuidance`, load it and proceed with the humanize pass — do not stop or ask.
+2. If the file does not exist or contains no `proseGuidance`, **stop** the humanize pass.
+3. Tell the user to complete **Workflow: Persona setup** (above)—paste persona, `@` **`.kyoko/persona.json`**, or run the **`persona`** slash command **if** their project includes that stub under `.claude/commands/` or `.cursor/commands/`.
+4. **Do not** run the full persona interview inside a **Humanize** request unless the user **explicitly** asks for that interview in the same turn; otherwise keep setup separate.
 
 If they only want **AI-ism stripping** with **no voice/persona**, use **[`ai-writing-auditor`](../ai-writing-auditor/SKILL.md)** alone instead of Kyoko humanize.
 
