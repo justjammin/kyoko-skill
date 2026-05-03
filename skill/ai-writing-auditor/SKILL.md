@@ -126,12 +126,12 @@ If the pipeline is LLM-based: ask for JSON only:
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
-| `target_confidence` | **85** | Stop when score ≥ this (persona may override: casual ~80, professional ~88) |
+| `target_confidence` | **85** | Minimum floor — stop rewriting once score reaches or exceeds this. Already above it? Loop exits immediately, no rewrites. (Persona may override: casual ~80, professional ~88) |
 | `max_passes` | **5** | Hard cap on rewrite iterations |
 | `min_delta` | **2** | Stop if improvement &lt; 2 points **twice in a row** (diminishing returns) |
 | Similarity floor | **0.9** | Reject or rollback if embedding (or proxy) similarity to **original** drops below this—prevents drift |
 
-**Sweet spots:** 80–85 = natural; 85–90 = tighter polish; **90+** risks overcooked / generic—treat as warning unless content-type demands it.
+**Sweet spots:** 80–85 = natural; 85–90 = tighter polish; **90+** = stop here, don't keep rewriting to chase a higher number — over-polished prose goes generic. If text already scores 90+, the loop exits on pass 1. Do not attempt to lower the score.
 
 ## Audit Output Format
 
