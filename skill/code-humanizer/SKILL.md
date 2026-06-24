@@ -20,7 +20,7 @@ instead of essays.
 - **Prose** → use [`kyoko-humanize`](../kyoko-humanize/SKILL.md)
 - **Code** → use this skill
 - **Both** → run the auditor/Kyoko on comments and docs first, then this on code structure
-- **Scoring philosophy** → shared with [`ai-writing-auditor`](../ai-writing-auditor/SKILL.md): the confidence number is **AI-tell risk under a rubric, not a verdict on who wrote it.** Clean code from a careful human and clean code from a model can look identical; absence of tells is not proof of authorship, and presence is not proof of a problem.
+- **Scoring philosophy** → shared with [`ai-writing-auditor`](../ai-writing-auditor/SKILL.md): the output is a pass-based **verdict** (PASS / REVISE / FAIL), framed as **AI-tell risk under a rubric, not a judgment on who wrote it.** Clean code from a careful human and clean code from a model can look identical; absence of tells is not proof of authorship, and presence is not proof of a problem.
 
 ## How AI code reads (2025–2026)
 
@@ -211,26 +211,24 @@ Hand longer prose bodies to [`ai-writing-auditor`](../ai-writing-auditor/SKILL.m
 
 ---
 
-## Confidence Scoring
+## Verdict (pass-based; the number is optional)
 
-After the pipeline, rate the output 0–100 — **as AI-tell risk under this rubric, not a verdict on authorship.**
+After the pipeline, emit a **verdict**, not a number — **as AI-tell risk under this rubric, not a judgment on authorship.**
 
-| Score | Meaning |
-|-------|---------|
-| 90–100 | No material AI tells in this codebase's context |
-| 70–89 | Mostly natural, minor tells remain |
-| 50–69 | Improved but still reads AI-generated |
-| < 50 | Still clearly AI — re-run pipeline |
+| Verdict | When | Meaning |
+|---------|------|---------|
+| **PASS** | No attribution leakage, no false abstractions or dead guards left, style matches the surrounding human code | Reads like this codebase. Hand back. |
+| **REVISE** | Only minor tells remain (a stray tutorial comment, uneven comment cadence) | One more pass if it's worth it. |
+| **FAIL** | Attribution markers the user wanted gone, surviving false abstractions / redundant guards, or style that clashes with the module | Re-run the relevant stages. |
 
-Target: **≥ 85** before handing back. State which stages fired and a one-line limitations note (clean code is not proof of human authorship; this measures tells, not origin).
+State which stages fired and a one-line limitations note (clean code is not proof of human authorship; this measures tells, not origin). Add an optional 0–100 score only if asked (PASS ≈ 85–100, REVISE ≈ 60–84, FAIL ≈ 0–59).
 
-## Adaptive Loop
+## Adaptive Loop (multiple passes; findings-driven)
 
-- `max_passes`: 3
-- `target_confidence`: 85
-- `min_delta`: 5 (stop if improvement < 5 points two passes in a row)
-- Rollback if Stage 9 changes semantics (revert that stage only)
-- Structural-first: collapse false abstractions and prune guards (Stages 3, 5) before chasing Stage 9 polish — they move the score more.
+- `max_passes`: 3 — the loop iterates, converging on the verdict and remaining tells, not a score target.
+- Stop: verdict is **PASS**, or passes hit the cap, or the remaining tells don't shrink two passes in a row.
+- Rollback if Stage 9 changes semantics (revert that stage only).
+- Structural-first: collapse false abstractions and prune guards (Stages 3, 5) before chasing Stage 9 polish — they decide the verdict.
 
 ## Limitations
 

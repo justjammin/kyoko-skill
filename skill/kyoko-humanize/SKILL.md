@@ -114,9 +114,9 @@ Kyoko rewrites stiff text to match a **persona** (traits + `proseGuidance`). Con
 
 **Always coordinate with [`ai-writing-auditor`](../ai-writing-auditor/SKILL.md):**
 
-1. **Score** incoming or post-rewrite text using the auditor’s **confidence algorithm** (0–100, reported as a **band** — reads-human / mixed / reads-AI) and findings.
+1. **Audit** incoming or post-rewrite text using the auditor’s **verdict** (PASS / REVISE / FAIL) and findings. The 0–100 score is optional and runs under the hood.
 2. **Humanize** with persona when the user wants voice, not only de-AI cleanup.
-3. **Loop:** humanize → auditor score → if confidence &lt; `target_confidence` and passes remain, revise; stop on adaptive loop rules (see below).
+3. **Loop:** humanize → audit → if verdict isn’t PASS and passes remain and findings are still improving, revise; stop on the adaptive loop rules (see below).
 
 **Hosts:** One agent session holds the text and runs the loop in chat (≤ `max_passes` iterations, often fewer). No skill-to-skill IPC.
 
@@ -152,14 +152,14 @@ Add persona-specific entries to the array; never remove the em dash entry.
 
 ### Execution
 
-With **explicit persona** (gate satisfied), rewrite in-chat using persona + auditor checklist + confidence rubric from [`ai-writing-auditor/SKILL.md`](../ai-writing-auditor/SKILL.md) **plus the universal constraints above**. Address **structural/rhetorical tells first**, then voice, then corroborating vocabulary. Output rewritten text + confidence (number **and band**) + findings + a one-line limitations note (the score is AI-ism risk under a rubric, not an authorship verdict).
+With **explicit persona** (gate satisfied), rewrite in-chat using persona + auditor checklist + verdict rubric from [`ai-writing-auditor/SKILL.md`](../ai-writing-auditor/SKILL.md) **plus the universal constraints above**. Address **structural/rhetorical tells first**, then voice, then corroborating vocabulary. Output rewritten text + **verdict** (PASS / REVISE / FAIL) + findings + a one-line limitations note (this is AI-ism risk under a rubric, not a judgment on authorship). Add the optional 0–100 score only if asked.
 
-### Adaptive loop (shared with auditor doc)
+### Adaptive loop (multiple passes; shared with auditor doc)
 
-- `max_passes` **5** · `target_confidence` **85** (persona may override) · `min_delta` **2**
-- **Structural-first:** if structural / P0 / smoking-gun findings remain, fix those before chasing vocabulary points — they move the score more and survive paraphrase.
-- Stop: confidence ≥ target **or** passes ≥ max **or** improvement &lt; `min_delta` **twice** **or** similarity to original &lt; **0.9** (rollback)
-- Don’t chase 90+ — over-polished prose reads generic. If the text already lands in the **reads-human** band (85+), the loop exits.
+- `max_passes` **5** (persona may override). The loop still iterates — it converges on the **verdict and findings**, not a score target.
+- **Structural-first:** each pass, fix structural / P0 / smoking-gun findings before corroborating vocabulary — they decide the verdict and survive paraphrase.
+- Stop: verdict is **PASS** **or** passes ≥ max **or** findings don’t improve **twice in a row** (worst severity and count both flat) **or** similarity to original &lt; **0.9** (rollback).
+- Don’t over-polish. A **REVISE** on an isolated, arguably-intentional P1 is a fine place to stop — don’t rewrite a deliberate stylistic choice into generic prose just to clear it.
 
 ---
 

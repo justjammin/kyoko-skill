@@ -9,12 +9,12 @@ Three **Agent Skills** that stack on purpose: **Kyoko** humanizes prose to **an 
 | Skill | Folder | Role |
 |-------|--------|------|
 | **kyoko-humanize** | `skill/kyoko-humanize/` | Persona setup + Humanize workflows (in-agent) |
-| **ai-writing-auditor** | `skill/ai-writing-auditor/` | AI-ism audit (structural-first), banded confidence 0–100, findings |
+| **ai-writing-auditor** | `skill/ai-writing-auditor/` | AI-ism audit (structural-first), pass-based verdict + findings |
 | **code-humanizer** | `skill/code-humanizer/` | Strip AI tells from code + commit/PR prose |
 
 The real instructions are in each **`SKILL.md`** (they point at each other—read them if you’re wiring the loop).
 
-**2026 detection model:** the auditor weights **structural/rhetorical tells** (the “-ing” analysis tail, significance pivots, bold-colon lists, negative parallelism, formulaic scaffolding) as primary, and treats vocabulary and em dashes as **corroborating-only**. Single-word lists (delve, tapestry…) decay every model generation; structure survives paraphrase. The confidence score is reported as a **band** (reads-human / mixed / reads-AI) with per-signal caps and an ESL false-positive guardrail—it’s AI-ism *risk under a rubric*, never a verdict on authorship.
+**2026 detection model:** the auditor weights **structural/rhetorical tells** (the “-ing” analysis tail, significance pivots, bold-colon lists, negative parallelism, formulaic scaffolding) as primary, and treats vocabulary and em dashes as **corroborating-only**. Single-word lists (delve, tapestry…) decay every model generation; structure survives paraphrase. Output is a pass-based **verdict** (PASS / REVISE / FAIL) driven by the findings, with per-signal caps and an ESL false-positive guardrail; an optional 0–100 score runs under the hood for loop convergence. It’s AI-ism *risk under a rubric*, never a judgment on authorship.
 
 ---
 

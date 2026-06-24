@@ -2,8 +2,9 @@
 name: ai-writing-auditor
 description: >-
   Audit prose for AI writing patterns (AI-isms): structural/rhetorical tells first, era-aware
-  vocabulary second, P0/P1/P2 severity, and a banded confidence score (0-100). Pairs with
-  kyoko-humanize for persona rewrite + confidence loops, and code-humanizer for code.
+  vocabulary second, P0/P1/P2 severity, and a pass-based verdict (PASS/REVISE/FAIL) with an
+  optional 0-100 score. Pairs with kyoko-humanize for persona rewrite + multi-pass loops, and
+  code-humanizer for code.
 ---
 
 # AI writing auditor
@@ -13,15 +14,15 @@ description: >-
 **Coordinate with [`kyoko-humanize`](../kyoko-humanize/SKILL.md)** when the user wants:
 
 - **Persona** or voice-aware rewrite, not only de-AI cleanup
-- **Refine loop:** score → humanize → re-score until `target_confidence` or stop conditions
+- **Refine loop:** audit → humanize → re-audit until the verdict is PASS or the stop conditions fire
 
 **Hand off to [`code-humanizer`](../code-humanizer/SKILL.md)** when the target is **code**, not prose. (Comments and docstrings are prose — audit those here first, then send the code structure to code-humanizer.)
 
 **Workflow order (typical):**
 
-1. **Audit** this text → findings + **banded confidence** (algorithm below).
+1. **Audit** this text → findings + **verdict** (PASS / REVISE / FAIL; algorithm below).
 2. If the user wants **human voice**: Kyoko humanizes per persona (see partner skill).
-3. **Re-audit** output; loop until adaptive rules satisfied (see Confidence + adaptive loop).
+3. **Re-audit** output; loop until the verdict is PASS or the adaptive rules stop it (see Verdict + adaptive loop).
 
 **Hosts:** Same agent, same thread — alternates audit + humanize steps until stop rules; no separate orchestration plugin required.
 
@@ -36,11 +37,11 @@ When invoked:
 1. Read the provided content
 2. Audit it across the categories below — **structural/rhetorical tells first**, vocabulary and punctuation second
 3. Rewrite the content with the findings fixed
-4. Show a findings table + change summary, and a **banded confidence** when requested
+4. Show a findings table + change summary, and a **verdict** (PASS / REVISE / FAIL); add the optional 0–100 score only when asked
 
-## What the score is (and is not)
+## What the verdict is (and is not)
 
-The confidence score estimates **how human the text reads under this rubric** — it is **AI-ism risk, not a verdict on authorship**. AI detectors are unreliable: OpenAI retired its own classifier for low accuracy, modest human edits erase obvious signatures, and false positives fall hardest on non-native English writers (see the ESL guardrail). Treat every individual signal as probabilistic evidence, never proof. Report a **band** with the number so nobody reads 73 vs 71 as meaningful.
+The verdict estimates **how human the text reads under this rubric** — it is **AI-ism risk, not a judgment on who wrote it**. AI detectors are unreliable: OpenAI retired its own classifier for low accuracy, modest human edits erase obvious signatures, and false positives fall hardest on non-native English writers (see the ESL guardrail). Treat every individual signal as probabilistic evidence, never proof. Lead with the **verdict and the findings**; the number is optional and, when shown, positional rather than precise (73 vs 71 is noise).
 
 ## The 2026 shift: structure over vocabulary (read this first)
 
@@ -142,21 +143,19 @@ Strictness adjusts by format (applied as a multiplier in scoring):
 - **P1 (obvious AI smell):** the "-ing" analysis tail, significance pivots, bold-colon list items, negative parallelism, formulaic scaffold sections, essay-scaffold and appositive-stack openers, structural template repetition, markdown leaking into the wrong medium, Tier 1 vocabulary clusters
 - **P2 (stylistic polish):** editorializing meta-commentary, mechanical rule of three, low burstiness, title-case headings, emoji in headers, bold overuse, em dash density, bullet overuse, generic conclusions, transition phrases
 
-## Confidence score (0–100, banded)
+## Verdict (pass-based; the number is optional)
 
-**Meaning:** how human-like / low-AI-ism-risk the text reads **after** applying these categories. Higher = fewer remaining AI tells. **Always report the band, not just the number.**
+**The primary output is a verdict, not a number.** A 73-vs-71 score is noise; what matters is whether real tells remain. Map the findings directly to a verdict:
 
-### Bands (report one)
+| Verdict | When | Meaning |
+|---------|------|---------|
+| **PASS** | No Tier S, no P0, and no co-occurring structural/P1 tells (only P2 polish, or nothing) | Reads human under this rubric. Stop. |
+| **REVISE** | Only P2 / corroborating findings, **or** a single isolated P1 that's arguably an intentional choice | A tell or two remain; one more pass if voice matters. |
+| **FAIL** | Any Tier S smoking gun, any P0, **or** multiple co-occurring structural/P1 tells | Reads AI. Rewrite. |
 
-| Band | Score | Reading |
-|------|-------|---------|
-| **Reads human** | 85–100 | No material AI-ism risk under this rubric. Stop rewriting. |
-| **Mixed** | 60–84 | Some tells remain; worth another pass if voice matters. |
-| **Reads AI** | 0–59 | Multiple co-occurring tells, or a smoking gun. |
+**Optional 0–100 (under the hood):** the penalty rubric below still runs — it makes the verdict reproducible and gives the loop a convergence signal — but **surface the number only when asked**, and present it as positional, never precise. Don't chase a 90+; over-polished prose goes generic. (Rough map if a number is requested: PASS ≈ 85–100, REVISE ≈ 60–84, FAIL ≈ 0–59.)
 
-Treat the number as positional within its band, not precise. Do not chase a 90+ — over-polished prose goes generic.
-
-### Deterministic core
+### Deterministic core (computes the optional score behind the verdict)
 
 1. **Start:** `confidence = 100`.
 2. **Smoking gun (Tier S):** any Tier S finding clamps the result to **≤ 25** before other penalties, and **≤ 10** for self-identification or cutoff disclaimers. These are not "subtract a few points" — they are dispositive.
@@ -194,28 +193,30 @@ Treat the number as positional within its band, not precise. Do not chase a 90+ 
 
 If the pipeline is LLM-based, ask for JSON only:
 
-`{ "confidence": <number>, "band": "reads-human|mixed|reads-ai", "findings": [...], "rationale": "...", "limitations": "..." }`
+`{ "verdict": "pass|revise|fail", "findings": [...], "rationale": "...", "limitations": "...", "confidence": <number, optional> }`
 
-**Calibrate** the model to the penalties above so scores stay comparable to deterministic runs, and require the `limitations` field so the score is always presented as risk-under-rubric.
+**Calibrate** the model to the verdict rules and penalties above so runs stay comparable, and require the `limitations` field so the result is always presented as risk-under-rubric.
 
-### Adaptive loop (pairs with Kyoko humanize)
+### Adaptive loop (multiple passes; findings-driven)
+
+The loop still iterates — it just converges on the **verdict and findings**, not on a score target.
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
-| `target_confidence` | **85** | Floor — stop rewriting at/above this. Already above? Loop exits immediately. (Persona may override: casual ~80, professional ~88.) |
+| Stop verdict | **PASS** | Stop rewriting once the verdict is PASS. Already PASS on pass 1? Loop exits immediately — don't rewrite clean text. |
 | `max_passes` | **5** | Hard cap on rewrite iterations |
-| `min_delta` | **2** | Stop if improvement < 2 points **twice in a row** |
-| Similarity floor | **0.9** | Roll back if similarity to the **original** drops below this (prevents drift) |
-| Structural-first | — | If structural/P0/Tier-S findings remain, fix those **before** chasing vocabulary points — they move the score more and survive paraphrase. |
+| Findings stall | — | Stop if the findings set doesn't improve **twice in a row** — neither the worst severity drops nor the count falls. Diminishing returns; ship the best pass so far. |
+| Similarity floor | **0.9** | Roll back the pass if similarity to the **original** drops below this (prevents drift). |
+| Structural-first | — | Each pass, fix Tier-S/P0/structural findings **before** corroborating vocabulary — they decide the verdict and survive paraphrase. |
 
-**Sweet spots:** 80–85 natural; 85–90 tighter polish; **90+ stop** — don't keep rewriting to chase a number; over-polished prose reads generic. If text already scores 90+, the loop exits on pass 1.
+**Per pass:** humanize → audit → emit verdict + findings. If PASS, stop. If REVISE/FAIL and passes remain and findings are still improving, run another pass. A REVISE on an isolated, arguably-intentional P1 is a fine place to stop — don't rewrite a deliberate stylistic choice into generic prose just to clear it.
 
 ## Audit Output Format
 
-1. **Findings table:** each AI-ism, severity (Tier S / P0 / P1 / P2), the exact text, and a suggested fix — sorted structural-first.
-2. **Rewritten version:** full content with issues fixed.
-3. **Change summary:** what changed and why, grouped by category.
-4. **Confidence:** the number **and its band**, the content-type strictness factor used, and a one-line **limitations** note (this is AI-ism risk under a rubric, not an authorship verdict; note the ESL caveat if low-variance writing was involved).
+1. **Verdict:** PASS / REVISE / FAIL, the content-type strictness factor used, and a one-line **limitations** note (this is AI-ism risk under a rubric, not a judgment on authorship; note the ESL caveat if low-variance writing was involved). Add the optional 0–100 score only if requested.
+2. **Findings table:** each AI-ism, severity (Tier S / P0 / P1 / P2), the exact text, and a suggested fix — sorted structural-first.
+3. **Rewritten version:** full content with issues fixed.
+4. **Change summary:** what changed and why, grouped by category.
 
 ## Integration with other agents
 
