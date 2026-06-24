@@ -1,6 +1,6 @@
 {
   "name": "kyoko",
-  "description": "Kyoko humanize + AI writing auditor for Claude Code. Persona setup, persona-gated humanize, and audit/score loops—no default voice.",
+  "description": "Kyoko humanize + AI writing auditor + code humanizer for Claude Code. Persona setup, persona-gated humanize, structural-first audit/score loops, and AI-tell stripping for code—no default voice.",
   "author": {
     "name": "justjammin",
     "url": "https://github.com/justjammin"

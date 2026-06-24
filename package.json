@@ -1,7 +1,7 @@
 {
   "name": "kyoko-skills",
   "version": "0.1.0",
-  "description": "Kyoko humanize + AI writing auditor skills for Claude Code and other Agent Skills hosts.",
+  "description": "Kyoko humanize + AI writing auditor + code humanizer skills for Claude Code and other Agent Skills hosts.",
   "bin": {
     "kyoko-skills": "./install.js"
   },
@@ -11,7 +11,8 @@
     "skills",
     "writing",
     "humanize",
-    "ai-writing"
+    "ai-writing",
+    "code"
   ],
   "author": {
     "name": "Jamin Echols",

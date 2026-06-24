@@ -11,7 +11,7 @@ const os = require('os');
 
 const ROOT = __dirname;
 
-const SKILLS = ['kyoko-humanize', 'ai-writing-auditor'].map((id) => ({
+const SKILLS = ['kyoko-humanize', 'ai-writing-auditor', 'code-humanizer'].map((id) => ({
   id,
   skillDir: path.join(ROOT, 'skill', id),
   src: path.join(ROOT, 'skill', id, 'SKILL.md'),
@@ -96,10 +96,11 @@ function printTail() {
   console.log('  Invoke: match skill descriptions in Claude Code, or @-attach a SKILL.md');
   console.log('');
   console.log('Optional slash commands (copy this repo’s .claude/commands/ into your project):');
-  console.log('  /kyoko     Humanize workflow (persona required)');
-  console.log('  /persona   Persona quiz / presets / .kyoko/persona.json');
+  console.log('  /kyoko          Humanize workflow (persona required)');
+  console.log('  /persona        Persona quiz / presets / .kyoko/persona.json');
+  console.log('  /code-humanize  Strip AI tells from code + commit/PR prose');
   console.log('');
-  console.log('Pairing: humanize (Kyoko) + audit/score loop (ai-writing-auditor) — see skill docs.');
+  console.log('Pairing: humanize prose (Kyoko) + audit/score loop (ai-writing-auditor) + humanize code (code-humanizer) — see skill docs.');
   console.log('');
 }
 
