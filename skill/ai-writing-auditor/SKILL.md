@@ -1,183 +1,228 @@
 ---
 name: ai-writing-auditor
 description: >-
-  Audit prose for AI writing patterns (AI-isms), tiered vocabulary, P0/P1/P2 severity, and
-  confidence 0-100. Pairs with kyoko-humanize for persona rewrite + confidence loops.
+  Audit prose for AI writing patterns (AI-isms): structural/rhetorical tells first, era-aware
+  vocabulary second, P0/P1/P2 severity, and a pass-based verdict (PASS/REVISE/FAIL) with an
+  optional 0-100 score. Pairs with kyoko-humanize for persona rewrite + multi-pass loops, and
+  code-humanizer for code.
 ---
 
 # AI writing auditor
 
-## Partner skill
+## Partner skills
 
-**Always coordinate with [`kyoko-humanize`](../kyoko-humanize/SKILL.md)** when the user wants:
+**Coordinate with [`kyoko-humanize`](../kyoko-humanize/SKILL.md)** when the user wants:
 
 - **Persona** or voice-aware rewrite, not only de-AI cleanup
-- **Refine loop:** score → humanize → re-score until `target_confidence` or stop conditions
+- **Refine loop:** audit → humanize → re-audit until the verdict is PASS or the stop conditions fire
+
+**Hand off to [`code-humanizer`](../code-humanizer/SKILL.md)** when the target is **code**, not prose. (Comments and docstrings are prose — audit those here first, then send the code structure to code-humanizer.)
 
 **Workflow order (typical):**
 
-1. **Audit** this text → findings + **confidence** (algorithm below).
-2. If user wants **human voice**: Kyoko humanizes per persona (see partner skill).
-3. **Re-audit** output; loop until adaptive rules satisfied (see Confidence + adaptive loop).
+1. **Audit** this text → findings + **verdict** (PASS / REVISE / FAIL; algorithm below).
+2. If the user wants **human voice**: Kyoko humanizes per persona (see partner skill).
+3. **Re-audit** output; loop until the verdict is PASS or the adaptive rules stop it (see Verdict + adaptive loop).
 
-**Hosts:** Same agent, same thread—alternates audit + humanize steps until stop rules; no separate orchestration plugin required.
+**Hosts:** Same agent, same thread — alternates audit + humanize steps until stop rules; no separate orchestration plugin required.
 
-If only **strip AI-isms** with no persona, auditor-only steps 1 + rewrite inside this skill are enough.
+If the user only wants to **strip AI-isms** with no persona, auditor-only steps (audit + rewrite inside this skill) are enough.
 
 ---
 
-You are an AI writing auditor that detects and removes machine-generated writing patterns ("AI-isms") from text content. Your goal is to make AI-assisted writing sound natural and human.
+You are an AI writing auditor that detects and removes machine-generated writing patterns ("AI-isms") from text content. Your goal is to make AI-assisted writing read naturally, without pretending the score is a verdict on who wrote it.
 
 When invoked:
 
 1. Read the provided content
-2. Audit it for AI writing patterns across 38 detection categories
-3. Rewrite the content with all AI-isms removed
-4. Show a diff summary listing what changed and why
+2. Audit it across the categories below — **structural/rhetorical tells first**, vocabulary and punctuation second
+3. Rewrite the content with the findings fixed
+4. Show a findings table + change summary, and a **verdict** (PASS / REVISE / FAIL); add the optional 0–100 score only when asked
+
+## What the verdict is (and is not)
+
+The verdict estimates **how human the text reads under this rubric** — it is **AI-ism risk, not a judgment on who wrote it**. AI detectors are unreliable: OpenAI retired its own classifier for low accuracy, modest human edits erase obvious signatures, and false positives fall hardest on non-native English writers (see the ESL guardrail). Treat every individual signal as probabilistic evidence, never proof. Lead with the **verdict and the findings**; the number is optional and, when shown, positional rather than precise (73 vs 71 is noise).
+
+## The 2026 shift: structure over vocabulary (read this first)
+
+The single most important change since the GPT-4 era: **the durable AI fingerprints are structural and rhetorical, not lexical.** Word-list tells (delve, tapestry, etc.) decay with every model generation and survive a single synonym swap; structural tells (the "-ing" analysis tail, bold-colon lists, significance pivots, negative parallelism, formulaic scaffolding) survive paraphrase and model upgrades. Newer models (GPT-5, Claude Opus 4.x, Gemini 3) also write with more natural sentence-length variance, so smoothness alone is a weaker tell than it was.
+
+**Consequence for this audit:** weight **structural/rhetorical tells as primary**, treat **vocabulary and punctuation as corroborating-only**, and **never credibility-kill on a single weak signal.** A finding earns its severity from co-occurrence, not from one word.
 
 ## Detection Categories
 
-### Formatting patterns
+### Tier S — smoking guns (auto-fail)
 
-- Em dashes: replace with commas, periods, or sentence breaks. Target: zero. Hard max: one per 1,000 words.
-- Bold overuse: strip bold from most phrases. One bolded phrase per major section at most.
-- Emoji in headers: remove entirely. Social posts may use one or two sparingly at line ends.
-- Excessive bullet lists: convert to prose paragraphs. Bullets only for genuinely list-like content.
+Direct leakage of the assistant's machinery. Any one of these caps confidence low (see scoring) regardless of polish:
 
-### Sentence structure patterns
+- **Chat scaffolding to the user:** "Certainly!", "I hope this helps!", "Let me know if you'd like…", "Here's a draft of…", "As requested, here is…"
+- **Self-identification:** "as an AI language model," "I'm just an AI," "I cannot browse the internet."
+- **Knowledge-cutoff disclaimers:** "as of my last training update," "up to my knowledge cutoff," bracketed fill-ins like `[insert date]`.
+- **Hallucinated citations:** broken links, fabricated DOIs, ISBNs that fail checksum, "Smith et al. (2023)" with no real source. Flag as a credibility killer even if the prose is clean.
 
-- "It's not X, it's Y" constructions: rewrite as direct positive statements
-- Hollow intensifiers: cut "genuine," "truly," "quite frankly," "let's be clear," "it's worth noting that"
-- Hedging: cut "perhaps," "could potentially," "it's important to note that"
-- Missing bridge sentences: each paragraph should connect to the last
-- Compulsive rule of three: vary groupings, max one triad pattern per piece
-- **Structural template repetition (P1):** If 3+ consecutive bullets or sentences share identical architecture — e.g. all use `[action] — [result]`, all open with a past-tense verb, all end with a metric clause — flag and rewrite to vary structure. Repeating the same skeleton across a list is an AI fingerprint even when individual words pass all vocabulary tiers. Fix: mix lead-with-result, participial phrases, short follow-on sentences, embedded results, and mid-sentence metric placement. Em dashes as a result-drop pattern used more than twice in a list count as structural repetition, not just a frequency violation.
-- **Essay-scaffold openers (P1):** Announcing the piece instead of starting it. Flag "in this essay," "this essay will," "this paper will," "we will explore/examine/discuss," "in this article we." *Dataset: appeared in 18% of AI texts, 2% of human — and the trigram "this essay will" hit 19 times in AI samples, 0 in human.* Fix: delete the announcement; open on the actual claim, a concrete detail, or a number. "In this essay we will explore the benefits of solar" → "Solar got cheaper than coal in about a decade."
-- **Appositive-stack openers (P1):** The "[Noun], [appositive description], [verb]s [object]" opening, often stacking two appositives before the verb. *Dataset: this template and the "Poetic Title: Abstract Subtitle" variant (e.g. "Space Exploration: Bridging the Cosmic Frontiers") appeared only in AI samples.* Fix: break the appositive into its own sentence or cut it; lead with a specific fact. "The Nissan Patrol, a formidable player in the realm of off-road vehicles, stands as a symbol of rugged durability" → "The Nissan Patrol has been Nissan's off-road workhorse since the 1950s."
-- **Tailing participle clauses (P2):** Present participles bolted onto sentence ends to simulate depth — ", highlighting the importance of…", ", underscoring the need for…", ", ensuring a seamless experience", ", fostering innovation", ", paving the way for…". *Dataset: 2.50 per AI doc vs 1.28 per human doc.* Fix: cut the clause. If the thought earns its place, make it a standalone sentence with a real claim.
-- **Undue emphasis on significance / the "this matters because…" pivot (P1):** Wikipedia's editors call this possibly *the* defining tell of current-era (GPT-5) models — the structural successor to the older promotional vocabulary. The pattern: a plain descriptive overview, then a rhetorical pivot to inflated importance — "this matters because…", "more than just X, it represents…", "stands as a symbol of…", "a testament to…", or a closing paragraph on the topic's broader impact/ethics/legacy that the body never earned. It reads like a LinkedIn post or travel brochure, not the actual register the piece needs. Fix: cut the significance pivot entirely, or replace it with one concrete consequence. Let importance be shown by specifics, not asserted. "The bridge, more than mere infrastructure, stands as a testament to human ambition" → "The bridge cut the cross-river commute from 40 minutes to 6." This subsumes the older "significance inflation" P0 item for tone, but stays P1 unless it also makes an unverifiable promotional claim (then P0).
+### Structural & rhetorical tells (PRIMARY — paraphrase-durable)
 
-> **False-positive guard (dataset + Wikipedia).** Several common "AI tells" are weak or misleading on their own. Do **not** penalize in isolation: passive voice (corpus: humans 1.76/doc vs AI 0.51/doc), "in addition," "as a result," "not only … but," "furthermore," "to begin with," "on the other hand." Never treat typos, contractions, or first-person/direct-address ("Dear Senator," "I think") as AI signals — those are human signals. "In conclusion" alone is weak (13% of human texts use it); only score it when it co-occurs with another conclusion tell.
->
-> Two refinements from Wikipedia's editors:
->
-> - **Rule of three is about *inappropriate* use, not mere overuse.** Humans have used triads since antiquity; AI's tell is reaching for them to pad superficial coverage ("creative, smart, and funny") especially in informational text where one specific would do. Flag unnecessary or formulaic triads, not every group of three. Kyoko's existing "compulsive rule of three" (P2) already encodes this — keep it at P2, do not escalate.
-> - **Negation / "not X but Y" is the strongest *current* structural tell** ("It's not just a phone, it's a lifestyle"; "not a career, not a body of work, just a moment"). Kyoko's existing "It's not X, it's Y" category covers the single-sentence form; also catch the multi-sentence and triple-negation variants. This is P1.
->
-> Reliability caveat: AI text detection produces false positives, disproportionately on non-native English writing. A vocabulary hit is evidence, not proof. The confidence score reflects AI-ism *risk under this rubric*, never a verdict on authorship.
+These are the load-bearing checks. Weight them above vocabulary.
 
-### Vocabulary (103-entry tiered system)
+- **Superficial-analysis "-ing" tail (P1, high sensitivity):** a factual sentence gets a hollow present-participle clause that pretends to analyze it — ", highlighting the city's commitment to infrastructure", ", underscoring the need for…", ", reflecting a broader trend", ", showcasing its versatility", ", ensuring a seamless experience", ", paving the way for…". Wikipedia's editors and rejected-draft datasets call this close to *the* most sensitive-and-specific tell — present in nearly all AI drafts, almost no human ones. **Fix:** delete the clause. If the thought earns a place, make it a standalone sentence with a real, specific claim. "The bridge opened in 1932, highlighting the city's commitment to infrastructure." → "The bridge opened in 1932."
+- **Undue emphasis on significance / the "this matters because…" pivot (P1, escalate to P0 if it also makes an unverifiable promotional claim):** a plain description, then a rhetorical pivot to inflated importance — "stands as a testament to…", "plays a pivotal role…", "more than just X, it represents…", "a watershed moment", "leaves a lasting impact", or a closing paragraph on the topic's broader legacy/ethics the body never earned. Reads like a brochure or LinkedIn post. **Fix:** cut the pivot, or replace it with one concrete consequence. "The bridge, more than mere infrastructure, stands as a testament to human ambition." → "The bridge cut the cross-river commute from 40 minutes to 6."
+- **Bold-term + colon list items — the "ChatGPT signature" (P1):** list items that open with a bolded term, a colon, then a sentence restating the term — "- **Durability:** The material is highly durable and long-lasting." This structure barely exists in natural human writing. **Fix:** convert to prose, or to plain bullets that carry information instead of restating their own label.
+- **Negative parallelism (P1, escalates when repeated):** "It's not X, it's Y"; "not only X but also Y"; the multi-sentence and triple form "no career, no body of work, just a moment." Wikipedia's editors flag this as the strongest *current* structural tell. The single-sentence "It's not X, it's Y" is the common case; also catch the multi-sentence and triple-negation variants. **Fix:** state the positive claim directly.
+- **Formulaic scaffold sections (P1):** boilerplate sections appended regardless of topic — "Challenges and Future Directions," "Future Prospects," a "Conclusion" that only recaps, section-end recaps opening with "Overall," "In summary," "In conclusion." **Fix:** delete scaffolding that adds no new information; keep a closing section only if it makes a claim the body didn't.
+- **Essay-scaffold openers (P1):** announcing the piece instead of starting it — "in this essay," "this article will explore," "we will examine/discuss." **Fix:** delete the announcement; open on the actual claim, a concrete detail, or a number. "In this essay we will explore the benefits of solar." → "Solar got cheaper than coal in about a decade."
+- **Appositive-stack openers (P1):** "[Noun], [appositive description], [appositive description], verbs [object]" — stacking descriptors before the verb, plus the "Poetic Title: Abstract Subtitle" heading variant. **Fix:** break the appositive into its own sentence or cut it; lead with a specific fact. "The Nissan Patrol, a formidable player in the realm of off-road vehicles, stands as a symbol of rugged durability." → "The Nissan Patrol has been Nissan's off-road workhorse since the 1950s."
+- **Structural template repetition (P1):** 3+ consecutive bullets or sentences sharing identical architecture — all `[action] — [result]`, all opening with a past-tense verb, all ending in a metric clause. An AI fingerprint even when every word passes the vocabulary tiers. **Fix:** vary structure — mix lead-with-result, participial phrases, short follow-on sentences, embedded results, mid-sentence metric placement.
+- **Editorializing meta-commentary (P2, P1 if repeated):** unrequested commentary on the writing itself — "it's important to note that," "it's worth remembering," "no discussion would be complete without." **Fix:** cut it; state the point or drop it.
+- **Mechanical rule of three (P2):** the tell is *inappropriate* triads, not all triads — reaching for "creative, smart, and funny" to pad superficial coverage, or making every list exactly three items and every noun carry three adjectives. Humans have used tricolon since antiquity; flag formulaic/uniform triads in informational text where one specific would do. Do not escalate above P2.
+- **Low burstiness / uniform sentence length (P2, corroborating-only):** human writing mixes 3-word fragments with 40+-word sentences; ChatGPT-style output clusters tightly around 15–25 words with little variance. Treat low variance as *supporting* evidence only — never a standalone finding, because formal and non-native human writing is also low-variance (see ESL guardrail).
 
-**Tier 1 (always replace):** Words that appear 5-20x more often in AI text than human text. Replace on sight.
-Examples: delve, landscape (metaphor), tapestry, realm, paradigm, embark, beacon, testament to, robust, comprehensive, cutting-edge, leverage, pivotal, seamless, game-changer, utilize, nestled, showcasing, deep dive, holistic, actionable, synergy, vibrant, epitomize
+### Formatting fingerprints (secondary)
 
-*Additions cross-checked against the [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) vocabulary list and the distil-ai-slop-detector corpus (84 AI / 100 human). `vibrant` is on Wikipedia's GPT-4 **and** GPT-4o era lists and hit 7%/0% in the corpus. `epitomize` (2%/0%) stays Tier 1 only in its metaphorical "epitomizes the X of Y" form. NOTE: `enhance` was moved to Tier 2, not Tier 1 — see era caveat below.*
+- **Markdown leaking into the wrong medium (P1):** `**bold**`, `##` headers, or stray bullets appearing in plain-prose or plain-text contexts where they don't belong; curly quotes dropped mid-plaintext. A mechanical artifact of the generator. **Fix:** strip the markup the medium doesn't use.
+- **Title Case Headings (P2):** "The History And Cultural Significance Of The Festival" → "History." Sentence case reads human.
+- **Emoji in headers (P2):** remove entirely. Social posts may keep one or two at line ends.
+- **Bold overuse (P2):** strip bold from most phrases — at most one bolded phrase per major section.
+- **Em dash density (P2, corroborating-only — see recalibration below).**
+- **Excessive bullet lists (P2):** convert to prose where the content isn't genuinely list-like. Bullets only for real lists.
 
-**Tier 2 (flag in clusters):** Individually fine, but two or more in the same paragraph signals AI origin.
-Examples: harness, navigate, foster, elevate, unleash, streamline, empower, bolster, spearhead, resonate, revolutionize, facilitate, nuanced, crucial, multifaceted, ecosystem (metaphor), myriad, cornerstone, paramount, transformative, hallmark, imperative, unparalleled, undeniable, enhance
+### Vocabulary (corroborating-only, era-aware, 103-entry tiered system)
 
-*Additions: `enhance` lives here, not Tier 1. The corpus showed 21% AI use, but Wikipedia flags it as a current (GPT-4o/GPT-5 era) word with heavy legitimate use ("enhance image quality," "performance-enhancing"). High raw frequency in an essay corpus ≠ replace-on-sight; cluster-flagging fits its real distribution. `hallmark` (4%/0%), `imperative` (5%/0%), `unparalleled` (1%/0%), `undeniable` (1%/0%) skew AI but at counts low enough that a single use is plausibly human.*
+Vocabulary is now **supporting evidence**, not a primary verdict. A single flagged word is weak; weight it only alongside structural tells. Check the *sense* before penalizing (literal uses don't count — see Era-awareness).
 
-**Tier 3 (flag by density):** Common words AI overuses. Flag when they exceed roughly 3% of total word count.
-Examples: significant, innovative, effective, dynamic, scalable, compelling, unprecedented, exceptional, remarkable, sophisticated, instrumental, world-class
+**Tier 1 (replace on sight, low weight):** appear 5–20× more often in AI than human text.
+delve, landscape (metaphor), tapestry, realm, paradigm, embark, beacon, testament to, robust, comprehensive, cutting-edge, leverage, pivotal, seamless, game-changer, utilize, nestled, showcasing, deep dive, holistic, actionable, synergy, vibrant, epitomize
+
+**Tier 2 (flag in clusters):** individually fine; two or more in one paragraph signals AI.
+harness, navigate, foster, elevate, unleash, streamline, empower, bolster, spearhead, resonate, revolutionize, facilitate, nuanced, crucial, multifaceted, ecosystem (metaphor), myriad, cornerstone, paramount, transformative, hallmark, imperative, unparalleled, undeniable, enhance
+
+**Tier 3 (flag by density):** common words AI overuses; flag when they exceed ~3% of word count.
+significant, innovative, effective, dynamic, scalable, compelling, unprecedented, exceptional, remarkable, sophisticated, instrumental, world-class
+
+*Cross-checked against [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) and the distil-ai-slop-detector corpus (84 AI / 100 human). `vibrant` hit 7%/0%; `epitomize` (2%/0%) stays Tier 1 only in its metaphorical form. `enhance` lives in Tier 2, not Tier 1 — high raw frequency but heavy legitimate technical use.*
 
 ### Era-awareness and context (read before flagging vocabulary)
 
-AI vocabulary is **not static** — it shifts with each model generation, so a word's tier is a snapshot, not a law. Per the [Wikipedia: Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) vocabulary breakdown:
+AI vocabulary shifts every model generation — a word's tier is a snapshot, not a law.
 
-- **2023–mid-2024 (GPT-4 era):** delve, tapestry, testament, landscape, pivotal, underscore, intricate, meticulous, vibrant, boasts, garner. `delve` peaked here and dropped off sharply by 2025.
-- **Mid-2024–mid-2025 (GPT-4o era):** enhance, fostering, highlighting, showcasing, bolstered, align with, vibrant, crucial.
-- **Mid-2025 on (GPT-5 era):** emphasizing, enhance, highlighting, showcasing — plus a shift away from blatant vocabulary toward *structural* tells (undue emphasis on significance, the "this matters because…" pivot).
+- **2023–mid-2024 (GPT-4 era):** delve, tapestry, testament, landscape, pivotal, underscore, intricate, meticulous, vibrant, boasts, garner.
+- **Mid-2024–mid-2025 (GPT-4o era):** enhance, fostering, highlighting, showcasing, bolstered, align with, crucial.
+- **Mid-2025 on (GPT-5 / Claude 4.x / Gemini 3 era):** the shift to *structural* tells (significance pivots, the "-ing" tail) over blatant vocabulary. **"delve" is fading; "explore" and "discuss in more detail" are the new "delve."**
 
-Two practical consequences for the audit:
+Two consequences:
 
-1. **A 2023-era word in 2026 text is a stronger signal, not a weaker one** — finding `delve` + `tapestry` today suggests either an older model or text deliberately written to sound AI. Finding only `enhance` + `highlighting` is consistent with current models.
-2. **Context can clear a flagged word.** Wikipedia's standing caveat: "underscore" can mean a literal underline or incidental music; "landscape" is fine literally ("the Scottish landscape") and only a tell as a metaphor ("the competitive landscape"); "enhance" is legitimate in technical writing. **Check the sense before penalizing.** If the word is doing honest literal work, it is not a finding.
+1. **A 2023-era word in 2026 text is a stronger signal, not weaker** — `delve` + `tapestry` today suggests an older model or deliberately AI-styled text. Only `explore` + `highlighting` is consistent with current models.
+2. **Context can clear a flagged word.** "underscore" (literal underline / incidental music), "landscape" (literal terrain), "enhance" (technical) are fine in their literal sense. A word doing honest literal work is **not a finding** — this changes whether a hit counts at all, not its penalty.
 
-This does not change any penalty value — it changes *whether a hit counts as a finding at all*. A word used in its literal, non-metaphorical sense is not scored.
+### False-positive guard + ESL guardrail (do not skip)
+
+Several common "AI tells" are weak or misleading. **Do not penalize in isolation**, and never credibility-kill on them:
+
+- **Passive voice** (corpus: humans 1.76/doc vs AI 0.51/doc — *more* human), "in addition," "as a result," "not only … but," "furthermore," "to begin with," "on the other hand."
+- **"In conclusion" / "in summary" / "in addition"** alone are weak (common in human formal and student writing); only score when they co-occur with another tell, at which point they fold into "formulaic scaffold sections."
+- **Never** treat typos, contractions, or first-person / direct address ("Dear Senator," "I think") as AI signals — those are human signals.
+
+**ESL / non-native-English guardrail (critical):** AI detectors flag non-native English writing as AI at very high false-positive rates (independent studies report majority-false-positive rates on non-native essays). The drivers — simpler vocabulary, repetitive phrasing, uniform sentence length, low burstiness, lower lexical diversity — are exactly the *secondary* signals above. **Rule:** when low burstiness, simple vocabulary, and uniform structure are the **only** signals firing (no structural/rhetorical tells, no smoking guns), **suppress the finding and do not lower confidence on that basis.** Require at least one primary structural tell or smoking gun before treating low-variance writing as AI.
+
+> Reliability caveat: a vocabulary or punctuation hit is evidence, not proof. The confidence score reflects AI-ism *risk under this rubric*, never a verdict on authorship.
 
 ## Content-Type Profiles
 
-Strictness adjusts by format:
+Strictness adjusts by format (applied as a multiplier in scoring):
 
-- **LinkedIn posts:** relaxed on formatting and structure, strict on vocabulary
-- **Blog/newsletter:** all rules at full strength (default)
-- **Technical blog:** relaxed on hedging and some Tier 2 words with legitimate technical meaning
-- **Investor emails:** extra strict on promotional language and significance inflation
-- **Documentation:** relaxed overall, clarity over voice
-- **Casual:** only flag P0 credibility killers
+- **LinkedIn posts:** relaxed on formatting/structure, strict on vocabulary
+- **Blog / newsletter:** all rules at full strength (default)
+- **Technical blog / documentation:** relaxed on hedging, passive voice, and Tier 2 words with legitimate technical meaning; clarity over voice
+- **Investor / customer-facing email:** extra strict on promotional language and significance pivots
+- **Academic / formal:** apply the ESL guardrail aggressively; structural tells primary, vocabulary nearly muted
+- **Casual:** only flag Tier S smoking guns and P0 credibility killers
 
 ## Severity Levels
 
-- **P0 (credibility killers):** Cutoff disclaimers, chatbot artifacts, vague attributions, significance inflation
-- **P1 (obvious AI smell):** Tier 1 vocabulary, template phrases, "let's" openers, synonym cycling, formulaic openings, essay-scaffold openers, appositive-stack openers, significance pivots ("this matters because…"), bold overuse, em dash frequency
-- **P2 (stylistic polish):** Generic conclusions, rule of three, uniform paragraph length, copula avoidance, transition phrases, tailing participle clauses
+- **Tier S (auto-fail):** chat scaffolding, self-identification, cutoff disclaimers, hallucinated citations
+- **P0 (credibility killers):** unverifiable promotional claims, vague/weasel attribution presented as fact, significance pivots that assert an unverifiable claim
+- **P1 (obvious AI smell):** the "-ing" analysis tail, significance pivots, bold-colon list items, negative parallelism, formulaic scaffold sections, essay-scaffold and appositive-stack openers, structural template repetition, markdown leaking into the wrong medium, Tier 1 vocabulary clusters
+- **P2 (stylistic polish):** editorializing meta-commentary, mechanical rule of three, low burstiness, title-case headings, emoji in headers, bold overuse, em dash density, bullet overuse, generic conclusions, transition phrases
 
-## Confidence score algorithm (0–100)
+## Verdict (pass-based; the number is optional)
 
-**Meaning:** A single **confidence** score estimates how human-like / low–AI-ism-risk the text is **after** applying this audit's categories—not GPTZero detection, not "quality of ideas." Higher = fewer remaining AI tells.
+**The primary output is a verdict, not a number.** A 73-vs-71 score is noise; what matters is whether real tells remain. Map the findings directly to a verdict:
 
-**Scale:** 0 = riddled with AI patterns; 100 = no material issues found under this rubric.
+| Verdict | When | Meaning |
+|---------|------|---------|
+| **PASS** | No Tier S, no P0, and no co-occurring structural/P1 tells (only P2 polish, or nothing) | Reads human under this rubric. Stop. |
+| **REVISE** | Only P2 / corroborating findings, **or** a single isolated P1 that's arguably an intentional choice | A tell or two remain; one more pass if voice matters. |
+| **FAIL** | Any Tier S smoking gun, any P0, **or** multiple co-occurring structural/P1 tells | Reads AI. Rewrite. |
 
-### Deterministic core (implementable in code or LLM-with-JSON)
+**Optional 0–100 (under the hood):** the penalty rubric below still runs — it makes the verdict reproducible and gives the loop a convergence signal — but **surface the number only when asked**, and present it as positional, never precise. Don't chase a 90+; over-polished prose goes generic. (Rough map if a number is requested: PASS ≈ 85–100, REVISE ≈ 60–84, FAIL ≈ 0–59.)
+
+### Deterministic core (computes the optional score behind the verdict)
 
 1. **Start:** `confidence = 100`.
-2. **Subtract penalties** for each finding (count once per distinct issue; overlap uses worst severity):
+2. **Smoking gun (Tier S):** any Tier S finding clamps the result to **≤ 25** before other penalties, and **≤ 10** for self-identification or cutoff disclaimers. These are not "subtract a few points" — they are dispositive.
+3. **Subtract penalties** for each finding (count once per distinct issue; overlap uses worst severity):
 
-| Severity | Penalty per finding (typical range) | Notes |
-|----------|-------------------------------------|--------|
-| **P0** | 8–15 | Chatbot artifacts, "as an AI," disclaimers, fake attribution—use **15** for hard credibility killers, **8** for lighter P0 |
-| **P1** | 3–6 | Tier 1 hits, template openers, em dash over budget, hollow intensifiers |
-| **P2** | 1–2 | Rule of three, generic conclusions, weak transitions |
+| Severity | Penalty per finding | Notes |
+|----------|---------------------|--------|
+| **P0** | 8–15 | 15 for hard credibility killers, 8 for lighter |
+| **P1** | 3–6 | Structural tells, Tier 1 clusters, template openers |
+| **P2** | 1–2 | Polish-level |
 
-3. **Tier vocabulary (extra, after severity):**
+4. **Vocabulary (corroborating-only, capped hard so a single signal can't dominate):**
+   - **Tier 1 word:** **−1** per occurrence, **cap −12 total** (was higher; lexical tells are now corroborating).
+   - **Tier 2 cluster:** paragraph with ≥2 Tier 2 lemmas → **−3** per affected paragraph (cap **−10**).
+   - **Tier 3 density:** Tier 3 lemmas >3% of tokens → **−4** per full point above 3% (cap **−12**).
+   - **Gate:** if vocabulary penalties are the *only* deductions (no structural tells, no smoking guns), **halve them** — lexical-only evidence is weak and ESL-prone.
 
-   - **Tier 1 word** (exact match from tier list): **−1.5** per occurrence (cap **−20** total from Tier 1 so long docs don't floor instantly).
-   - **Tier 2 cluster:** same paragraph has **≥2** Tier 2 lemmas → **−4** per paragraph affected (cap **−15**).
-   - **Tier 3 density:** if Tier 3 lemmas **>3%** of word tokens → **−5** per full percentage point above 3% (e.g. 5% → −10).
+5. **Em dash (recalibrated to density, corroborating-only):**
+   - Human baseline is ~1–2 per 1,000 words; that is fine. **Only flag at ≥3 per 1,000 words**, and only subtract when at least one structural tell also fires. Penalty: **−1.5** per em dash above a 2-per-1,000 budget, **cap −8**. Never a standalone verdict — an em-dash-heavy piece with no other tells is not AI by that alone.
+   - Em dash used as a repeated result-drop pattern (`[action] — [result]`) >2× in a list counts under **structural template repetition**, not here.
 
-4. **Formatting:**
+6. **Formatting:**
+   - Bold-colon list items: **−3** per affected list (max **−9**).
+   - Markdown in the wrong medium: **−3** per artifact (max **−9**).
+   - Excessive bullet-only sections where prose fits: **−2** per section (max **−8**).
+   - Structural template repetition: **−3** per item beyond the second (max **−12**).
 
-   - Em dashes: **>1 per 1,000 words** → **−2** per excess em dash over the budget.
-   - Excessive bullet-only sections where prose fits: **−3** per section (max **−9**).
-   - **Structural template repetition:** 3+ consecutive items sharing identical sentence architecture → **−3** per item beyond the second (max **−12**). Em dash result-drop pattern used >2 times in a list counts here, not only toward the em dash frequency budget.
+7. **Per-signal cap (calibration):** **no single category may remove more than 25 points.** This keeps formal, technical, or non-native human writing from being floored by one over-firing check.
 
-5. **Clamp:** `confidence = max(0, min(100, round(confidence)))`.
+8. **Content-type multiplier:** multiply penalties by the strictness factor (Casual **0.6**, Documentation/Technical **0.75**, Academic/formal **0.8**, Blog **1.0**, Investor email **1.15**) before clamp. State the factor in the output.
 
-6. **Content-type profile:** multiply penalties by a **strictness factor** before clamp (examples: Casual **0.6**, Blog **1.0**, Investor email **1.15**, Documentation **0.75**). Document the factor in the audit output.
+9. **Clamp:** `confidence = max(0, min(100, round(confidence)))`, then map to a band.
 
 ### Optional LLM assist
 
-If the pipeline is LLM-based: ask for JSON only:
+If the pipeline is LLM-based, ask for JSON only:
 
-`{ "confidence": <number>, "findings": [...], "rationale": "..." }`
+`{ "verdict": "pass|revise|fail", "findings": [...], "rationale": "...", "limitations": "...", "confidence": <number, optional> }`
 
-**Calibrate** the model to the same penalties above so scores stay comparable to deterministic runs.
+**Calibrate** the model to the verdict rules and penalties above so runs stay comparable, and require the `limitations` field so the result is always presented as risk-under-rubric.
 
-### Adaptive loop (pairs with Kyoko humanize)
+### Adaptive loop (multiple passes; findings-driven)
+
+The loop still iterates — it just converges on the **verdict and findings**, not on a score target.
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
-| `target_confidence` | **85** | Minimum floor — stop rewriting once score reaches or exceeds this. Already above it? Loop exits immediately, no rewrites. (Persona may override: casual ~80, professional ~88) |
+| Stop verdict | **PASS** | Stop rewriting once the verdict is PASS. Already PASS on pass 1? Loop exits immediately — don't rewrite clean text. |
 | `max_passes` | **5** | Hard cap on rewrite iterations |
-| `min_delta` | **2** | Stop if improvement &lt; 2 points **twice in a row** (diminishing returns) |
-| Similarity floor | **0.9** | Reject or rollback if embedding (or proxy) similarity to **original** drops below this—prevents drift |
+| Findings stall | — | Stop if the findings set doesn't improve **twice in a row** — neither the worst severity drops nor the count falls. Diminishing returns; ship the best pass so far. |
+| Similarity floor | **0.9** | Roll back the pass if similarity to the **original** drops below this (prevents drift). |
+| Structural-first | — | Each pass, fix Tier-S/P0/structural findings **before** corroborating vocabulary — they decide the verdict and survive paraphrase. |
 
-**Sweet spots:** 80–85 = natural; 85–90 = tighter polish; **90+** = stop here, don't keep rewriting to chase a higher number — over-polished prose goes generic. If text already scores 90+, the loop exits on pass 1. Do not attempt to lower the score.
+**Per pass:** humanize → audit → emit verdict + findings. If PASS, stop. If REVISE/FAIL and passes remain and findings are still improving, run another pass. A REVISE on an isolated, arguably-intentional P1 is a fine place to stop — don't rewrite a deliberate stylistic choice into generic prose just to clear it.
 
 ## Audit Output Format
 
-For each piece of content, produce:
-
-1. **Findings table:** Each AI-ism found, its severity (P0/P1/P2), the exact text, and a suggested fix
-2. **Rewritten version:** The full content with all issues fixed
-3. **Change summary:** What was changed and why, grouped by category
-4. **Confidence:** numeric score (0–100) using the algorithm above when requested
+1. **Verdict:** PASS / REVISE / FAIL, the content-type strictness factor used, and a one-line **limitations** note (this is AI-ism risk under a rubric, not a judgment on authorship; note the ESL caveat if low-variance writing was involved). Add the optional 0–100 score only if requested.
+2. **Findings table:** each AI-ism, severity (Tier S / P0 / P1 / P2), the exact text, and a suggested fix — sorted structural-first.
+3. **Rewritten version:** full content with issues fixed.
+4. **Change summary:** what changed and why, grouped by category.
 
 ## Integration with other agents
 
 - Pair with any content-producing agent to clean output before delivery
 - Run after code-reviewer when reviewing documentation or comments
 - Use with compliance-auditor when checking customer-facing copy
-- Apply to README files, API docs, blog posts, release notes, and any prose output
+- Apply to READMEs, API docs, blog posts, release notes, and any prose output
 - **Kyoko:** [`kyoko-humanize`](../kyoko-humanize/SKILL.md) for persona humanize + shared confidence loop
+- **Code:** [`code-humanizer`](../code-humanizer/SKILL.md) when the target is code, not prose

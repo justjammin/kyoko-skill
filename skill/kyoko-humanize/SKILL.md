@@ -74,7 +74,8 @@ Suggested shape:
     "format": "Prose; bullets only for real lists"
   },
   "examplePrompt": "Write as a Practical Mentor who simplifies complex topics and gives actionable steps from experience.",
-  "proseGuidance": "Write as a practical mentor: plain language, actionable steps, admit tradeoffs. Prefer concrete examples over abstractions. Avoid corporate AI diction and hollow intensifiers."
+  "proseGuidance": "Write as a practical mentor: plain language, actionable steps, admit tradeoffs. Prefer concrete examples over abstractions. Avoid corporate AI diction and hollow intensifiers. Fix sentence shape before swapping words: cut '-ing' analysis tails, significance pivots, and bold-colon lists.",
+  "formattingDont": ["em dashes ( — ): corroborating tell only. Budget ~1–2 per 1000 words; flag at >=3/1000 and only with another AI tell present. Replace with colon, period, comma, or parentheses depending on context."]
 }
 ```
 
@@ -109,17 +110,17 @@ Kyoko rewrites stiff text to match a **persona** (traits + `proseGuidance`). Con
 - User says Kyoko, humanize, persona, un-AI, “sound like me”
 - After or alongside an **ai-writing-auditor** pass when a numeric confidence target matters
 
-### Partner skill
+### Partner skills
 
 **Always coordinate with [`ai-writing-auditor`](../ai-writing-auditor/SKILL.md):**
 
-1. **Score** incoming or post-rewrite text using the auditor’s **confidence algorithm** (0–100) and findings.
+1. **Audit** incoming or post-rewrite text using the auditor’s **verdict** (PASS / REVISE / FAIL) and findings. The 0–100 score is optional and runs under the hood.
 2. **Humanize** with persona when the user wants voice, not only de-AI cleanup.
-3. **Loop:** humanize → auditor score → if confidence &lt; `target_confidence` and passes remain, revise; stop on adaptive loop rules (see below).
+3. **Loop:** humanize → audit → if verdict isn’t PASS and passes remain and findings are still improving, revise; stop on the adaptive loop rules (see below).
 
 **Hosts:** One agent session holds the text and runs the loop in chat (≤ `max_passes` iterations, often fewer). No skill-to-skill IPC.
 
-If the user only needs AI-ism removal with no persona, **auditor alone** may suffice. If they need **voice + score**, use both.
+If the user only needs AI-ism removal with no persona, **auditor alone** may suffice. If they need **voice + score**, use both. If the target is **code, not prose**, hand off to [`code-humanizer`](../code-humanizer/SKILL.md) (run Kyoko/auditor on comments and docs first, then code-humanizer on the structure).
 
 ### Persona gate (before humanize)
 
@@ -134,28 +135,31 @@ If **`proseGuidance`** (or equivalent persona the user treats as authoritative) 
 
 If they only want **AI-ism stripping** with **no voice/persona**, use **[`ai-writing-auditor`](../ai-writing-auditor/SKILL.md)** alone instead of Kyoko humanize.
 
-### Universal formatting constraints (apply to every rewrite, all personas)
+### Universal constraints (apply to every rewrite, all personas)
 
 These apply **regardless of persona**, pre-created or custom. They are not overridable by `proseGuidance`.
 
-| Constraint | Rule | Severity | Replacement |
+| Constraint | Rule | Severity | Replacement / fix |
 |-----------|------|----------|-------------|
-| **Em dashes ( — )** | Budget: 1 per 1,000 words. Excess is a P1 AI-writing smell. | P1 | Use `:` (annotation/intro), `.` (new sentence), `,` (light pause), or `()` (aside). Never use as a clause joiner or separator. |
+| **Structure before vocabulary** | Fix structural/rhetorical tells (the “-ing” analysis tail, significance pivots, bold-colon lists, negative parallelism, formulaic scaffolding) **before** swapping flagged words. Structure is the durable AI fingerprint; vocabulary is corroborating-only. See the auditor’s [2026 shift](../ai-writing-auditor/SKILL.md). | — | Rewrite the sentence shape, don’t just trade synonyms. |
+| **Em dashes ( — )** | **Density-based, not binary.** Human baseline ~1–2 per 1,000 words is fine; em dashes are not inherently an AI tell. Flag only at **≥3 per 1,000 words**, and only weight it when another tell co-occurs. | P2 (corroborating) | Use `:` (annotation/intro), `.` (new sentence), `,` (light pause), or `()` (aside) where density is high. Never the only reason to call text AI. |
 
 **When building or persisting a persona:** always write `formattingDont` into the JSON with at least the em dash rule:
 ```json
-"formattingDont": ["em dashes ( — ): P1 AI smell, budget 1 per 1000 words. Replace with colon, period, comma, or parentheses depending on context."]
+"formattingDont": ["em dashes ( — ): corroborating tell only. Budget ~1–2 per 1000 words; flag at >=3/1000 and only with another AI tell present. Replace with colon, period, comma, or parentheses depending on context."]
 ```
 Add persona-specific entries to the array; never remove the em dash entry.
 
 ### Execution
 
-With **explicit persona** (gate satisfied), rewrite in-chat using persona + auditor checklist + confidence rubric from [`ai-writing-auditor/SKILL.md`](../ai-writing-auditor/SKILL.md) **plus universal formatting constraints above**; output rewritten text + confidence + findings.
+With **explicit persona** (gate satisfied), rewrite in-chat using persona + auditor checklist + verdict rubric from [`ai-writing-auditor/SKILL.md`](../ai-writing-auditor/SKILL.md) **plus the universal constraints above**. Address **structural/rhetorical tells first**, then voice, then corroborating vocabulary. Output rewritten text + **verdict** (PASS / REVISE / FAIL) + findings + a one-line limitations note (this is AI-ism risk under a rubric, not a judgment on authorship). Add the optional 0–100 score only if asked.
 
-### Adaptive loop (shared with auditor doc)
+### Adaptive loop (multiple passes; shared with auditor doc)
 
-- `max_passes` **5** · `target_confidence` **85** (persona may override) · `min_delta` **2**
-- Stop: confidence ≥ target **or** passes ≥ max **or** improvement &lt; `min_delta` **twice** **or** similarity to original &lt; **0.9** (rollback)
+- `max_passes` **5** (persona may override). The loop still iterates — it converges on the **verdict and findings**, not a score target.
+- **Structural-first:** each pass, fix structural / P0 / smoking-gun findings before corroborating vocabulary — they decide the verdict and survive paraphrase.
+- Stop: verdict is **PASS** **or** passes ≥ max **or** findings don’t improve **twice in a row** (worst severity and count both flat) **or** similarity to original &lt; **0.9** (rollback).
+- Don’t over-polish. A **REVISE** on an isolated, arguably-intentional P1 is a fine place to stop — don’t rewrite a deliberate stylistic choice into generic prose just to clear it.
 
 ---
 
@@ -164,5 +168,6 @@ With **explicit persona** (gate satisfied), rewrite in-chat using persona + audi
 - User install: **`install.js`** at repository root (`node install.js` copies to `~/.claude/skills/`; **`--project`** / **`--user`** symlink full skill dirs — see repo **README.md**)
 - Default persona file (project): **`.kyoko/persona.json`**
 - This skill: `skill/kyoko-humanize/SKILL.md`
-- Optional slash stubs: `.claude/commands/{kyoko,persona}.md`, `.cursor/commands/{kyoko,persona}.md`
+- Optional slash stubs: `.claude/commands/{kyoko,persona,code-humanize}.md`, `.cursor/commands/{kyoko,persona,code-humanize}.md`
 - Auditor: `skill/ai-writing-auditor/SKILL.md`
+- Code humanizer: `skill/code-humanizer/SKILL.md`
